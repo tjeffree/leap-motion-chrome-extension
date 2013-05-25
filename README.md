@@ -3,10 +3,12 @@ Leap Motion Chrome Extension
 
 [![ScreenShot](http://peterschmalfeldt.com/downloads/leapmotion_screenshot.png)](https://vimeo.com/66952815)
 
+Watch Intro Video: [https://vimeo.com/66952815](https://vimeo.com/66952815)
+
 Libraries Used:
 ---
 
-* leap.js from [official Leap Motion Javascript library](https://github.com/leapmotion/leapjs)
+**leap.js** from [official Leap Motion Javascript library](https://github.com/leapmotion/leapjs)
 
 Overview:
 ---
@@ -23,12 +25,12 @@ Instructions:
 Configuration Options:
 ---
 
-* __Show Fingers__: Display Finger Locations on Screen _[ __Yes__, No ]_
-* __Finger Colors__: Colors Used to Indicate Fingers _[ __Rainbow__, Leap Green, Dark, Light ]_
-* __Page Scrolling__:  Two Fingers to Scroll Page _[ __Enabled__, Disabled ]_
-* __History Swipe__: Open Hand Swipe Left to go Back, Right to go Forward _[ __Enabled__, Disabled ]_
-* __Page Zoom__: Experimental:  Open Hand and Pinch/Zoom with All Fingers _[ Enabled, __Disabled__ ]_
-* __Page Rotation__: Experimental:  Open Hand and Rotate with All Fingers _[ Enabled, __Disabled__ ]_
+* __Show Fingers__: Display Finger Locations on Screen _[ **Yes**, No ]_
+* __Finger Colors__: Colors Used to Indicate Fingers _[ **Rainbow**, Leap Green, Dark, Light ]_
+* __Page Scrolling__:  Two Fingers to Scroll Page _[ **Enabled**, Disabled ]_
+* __History Swipe__: Open Hand Swipe Left to go Back, Right to go Forward _[ **Enabled**, Disabled ]_
+* __Page Zoom__: Experimental:  Open Hand and Pinch/Zoom with All Fingers _[ Enabled, **Disabled** ]_
+* __Page Rotation__: Experimental:  Open Hand and Rotate with All Fingers _[ Enabled, **Disabled** ]_
 
 Install From Source:
 ---
