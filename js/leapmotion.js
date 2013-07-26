@@ -1,25 +1,28 @@
+var html = document.getElementsByTagName('html')[0];
+
 // Whether Current Tab Has Focus
-var tab_has_focus = false;
+var tab_has_focus = true;
 
 // Leap Motion Settings
+var run = true;
 var last_frame;
 var scene;
 var action = null;
 var last_action = null;
 var start_action = 0;
 var intent = false;
-var delay_between_actions = 1;
+var delay_between_actions = 0.3;
 var timeout = null;
 
 // Track Leap Motion Connection
-var now, last_poll = new Date().getTime() / 1000;
+var now, last_poll = Date.now() / 1000;
 var connection;
 var connection_lost_after = 5;
 
 // Settings for Scroll Events
 var width = window.innerWidth;
 var height = window.innerHeight;
-var scroll_speed = 20;
+var scroll_speed = 10;
 var scroll_smoothing = 4;
 
 // Size for Finger Rendering in Pixels
@@ -31,21 +34,119 @@ var leap = '#9AC847';
 var dark = '#000000';
 var light = '#FFFFFF';
 
+var $allFingers;
+var fingersGone = false;
+
 // Setup Default Settings for Leap Motion
 var leap_motion_settings = {
 	'fingers': 'yes',
 	'color': 'rainbow',
 	'scrolling': 'enabled',
+    'refresh': 'enabled',
+    'close': 'enabled',
 	'history': 'enabled',
 	'zoom': 'disabled',
 	'rotation': 'disabled'
 };
 
+var baseCSS = 
+    '.leap_motion_connection {' +
+        'position: fixed;' +
+        'top: 0;' +
+        'left: 0;' +
+        'width: 100%;' +
+        'color: #222;' +
+        'text-align: center;' +
+        'height: 30px;' +
+        'z-index: 1000;' +
+        'line-height: 30px;' +
+        'background-color: #9AC847; }' +
+    
+    '.finger {' +
+        'width:' + finger_size + 'px;' +
+        'height:' + finger_size + 'px;' +
+        '-webkit-border-radius: ' + Math.ceil(finger_size/2) + 'px;' +
+        'border-radius: ' + Math.ceil(finger_size/2) + 'px;' +
+        'opacity: 0;' +
+        'position: fixed;' +
+        'z-index: 10000;' +
+        '-webkit-transition: opacity 0.15s ease;' +
+        'transition: opacity 0.15s ease;' +
+        '-webkit-box-sizing: border-box;' +
+        'box-sizing: border-box;' +
+        'transform: translate3d(0,0,0); }' +
+    
+    '.finger-rainbow {' +
+        '-webkit-box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25);' +
+        'box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25); }' +
+    
+    '.finger-leap {' +
+        'background-color: ' + leap + ';' +
+		'-webkit-box-shadow: inset 0 0 5px #000;' +
+        'box-shadow: inner 0 0 5px #000; }' +
+    
+    '.finger-dark {' +
+        'background-color: ' + dark + ';' +
+		'-webkit-box-shadow: inset 0px 0px 1px 1px rgba(255, 255, 255, 0.5);' +
+        'box-shadow: inset 0px 0px 1px 1px rgba(255, 255, 255, 0.5); }' +
+    
+    '.finger-light {' +
+        'background-color: ' + light + ';' +
+	    '-webkit-box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25);' +
+        'box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25) }';
+
+// Add the CSS to the page
+var headStyle = document.createElement('style');
+headStyle.setAttribute('type','text/css');
+headStyle.appendChild(document.createTextNode(baseCSS));
+document.head.appendChild(headStyle);
+
 // Update Settings from Browser Extension
 update_settings();
 
-// called when a tab is updated (like changed away from, or refreshed, or loaded)
-chrome.storage.onChanged.addListener(update_settings);
+if ("storage" in chrome) {
+    // called when a tab is updated (like changed away from, or refreshed, or loaded)
+    chrome.storage.onChanged.addListener(update_settings);
+}
+
+// Update the width and height if the window is resized
+window.addEventListener('resize', function() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+}, false);
+
+// Catch focus events to more quickly update the focus status
+window.addEventListener('focus', function() { tab_has_focus = true;  });
+window.addEventListener('blur' , function() { tab_has_focus = false; });
+
+// Inteval like method using animation frames - so it won't be checking when not in focus
+// https://gist.github.com/joelambert/1002116
+function requestInterval(fn, delay) {
+	var start = new Date().getTime(),
+		handle = {stop: false};
+
+	function loop() {
+        if (!handle.stop) {
+            var current = new Date().getTime(),
+                delta = current - start;
+                
+            if(delta >= delay) {
+                fn.call();
+                start = new Date().getTime();
+            }
+     
+            handle.value = requestAnimationFrame(loop);
+        }
+	};
+	
+	handle.value = requestAnimationFrame(loop);
+	return handle;
+}
+
+function clearRequestInterval(handle) {
+    handle.stop = true;
+    window.cancelAnimationFrame(handle.value);
+};
 
 // Once Settings are Updates, Initialize Extension
 function init()
@@ -55,37 +156,58 @@ function init()
 		add_fingers();
 	}
 
-	setInterval(check_focus, 1000);
-	connection = setInterval(check_connection, 1000);
+	connection = requestInterval(runInterval, 1000);
+    
+}
+
+// Single interval method to check the connection and focus status
+function runInterval()
+{
+    if (!run)
+    {
+        // Not running, so don't check
+        clearRequestInterval(connection);
+        return;
+    }
+    
+    check_connection();
+    check_focus();
 }
 
 // Sometimes The Connection Dies, and Leap Motion Needs to be Restarted
 function check_connection()
-{
-	now = new Date().getTime() / 1000;
+{   
+	now = Date.now() / 1000;
+    
+    // Mostly I have only had to refresh the page to make the Leap work after losing connection
+    // Can probably attempt a reconnect here first
+    
 	if(now - last_poll > connection_lost_after)
 	{
-		clearInterval(connection);
+		clearRequestInterval(connection);
+        run = false;
 
 		try {
+            
+            if (!("runtime" in chrome)) {
+                // Not being run as an extension
+                console.error('Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.');
+                return;
+            }
+            
 			chrome.runtime.sendMessage({ connection: 'lost' }, function(response) {
 				console.error('Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.');
-
-				$('body').append('<div class="leap_mostion_connection" style="display: none;"><\/div>');
-				$('.leap_mostion_connection').html('<b>ATTENTION:<\/b> Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.').css({
-					'position': 'fixed',
-					'top': '0',
-					'left': '0',
-					'width': '100%',
-					'color': '#222',
-					'text-align': 'center',
-					'height': '30px',
-					'z-index': '1000',
-					'line-height': '30px',
-					'background-color': '#9AC847'
-				}).fadeIn('slow');
-
-				$('.leap_mostion_connection').click(function(){ $(this).fadeOut('slow'); });
+                
+                var leapDiv = document.createElement('div');
+                leapDiv.className = 'leap_motion_connection';
+                leapDiv.innerHTML = '<b>ATTENTION:<\/b> Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.';
+                
+                document.body.appendChild(leapDiv);
+                
+                document.getElementsByClassName('leap_motion_connection')[0].addEventListener('click', function() {
+                    this.style.display = 'none';
+                }, false);
+                
 			});
 		}
 		catch(error) {
@@ -97,6 +219,13 @@ function check_connection()
 // Check if Current Tab has Focus, and only run this extension on the active tab
 function check_focus()
 {
+    
+    if (!("runtime" in chrome)) {
+        // Not being run as an extension
+        tab_has_focus = document.hasFocus();
+        return;
+    }
+    
 	try {
 		chrome.runtime.sendMessage({ tab_status: 'current' }, function(response) {
 			if(response.active && window.location.href == response.url && document.hasFocus())
@@ -113,7 +242,7 @@ function check_focus()
 		// If you clicked to reload this extension, you will get this error, which a refresh fixes
 		if(error.message.indexOf('Error connecting to extension') !== -1)
 		{
-			document.location.reload(true);
+			refresh_page();
 		}
 		// Something else went wrong... I blame Grumpy Cat
 		else
@@ -121,72 +250,64 @@ function check_focus()
 			console.error(error.message);
 		}
 	}
+    console.log(tab_has_focus);
 }
 
 // Add DOM Elements to Page to Render Fingers
 function add_fingers()
 {
+    var fingerD = document.createDocumentFragment();
+    var finger = document.createElement('div'), thisFinger,
+        cssString;
+    
 	for(var i=0; i<10; i++)
 	{
-		$('body').append('<div class="finger" id="finger'+ (i+1) +'"><\/div>');
-
-		switch(leap_motion_settings.color)
-		{
-			case 'rainbow':
-				$('#finger'+ (i+1) +'').css({
-					'background-color': rainbow[i],
-					'-webkit-box-shadow': 'inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25)',
-					'box-shadow': 'inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25)'
-				});
-				break;
-
-			case 'leap':
-				$('#finger'+ (i+1) +'').css({
-					'background-color': leap,
-					'-webkit-box-shadow': 'inset 0 0 5px #000',
-					'box-shadow': 'inner 0 0 5px #000'
-				});
-				break;
-
-			case 'dark':
-				$('#finger'+ (i+1) +'').css({
-					'background-color': dark,
-					'-webkit-box-shadow': 'inset 0px 0px 1px 1px rgba(255, 255, 255, 0.5)',
-					'box-shadow': 'inset 0px 0px 1px 1px rgba(255, 255, 255, 0.5)'
-				});
-				break;
-
-			case 'light':
-				$('#finger'+ (i+1) +'').css({
-					'background-color': light,
-					'-webkit-box-shadow': 'inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25)',
-					'box-shadow': 'inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25)'
-				});
-				break;
+        thisFinger = finger.cloneNode();
+        thisFinger.id = 'finger'+ (i+1);
+        
+        if (leap_motion_settings.color==='rainbow')
+        {
+            thisFinger.style.cssText = 'background-color: ' + rainbow[i] + ';';
 		}
+        
+        thisFinger.className = 'finger finger-' + leap_motion_settings.color;
+        
+        fingerD.appendChild(thisFinger);
 	}
+    
+    document.body.appendChild(fingerD);
+    
+    // Save all fingers for later
+    $allFingers = document.getElementsByClassName('finger');
 
-	$('.finger').css({
-		'width': finger_size + 'px',
-		'height': finger_size + 'px',
-		'opacity': '0',
-		'position': 'absolute',
-		'-webkit-border-radius': Math.ceil(finger_size/2) + 'px',
-		'border-radius': Math.ceil(finger_size/2) + 'px',
-		'z-index': '10000',
-		'-webkit-transition': 'opacity 0.15s ease',
-		'transition': 'opacity 0.15s ease',
-		'-webkit-box-sizing': 'border-box',
-		'box-sizing': 'border-box',
-		'transform': 'translate3d(0,0,0)'
-	});
+}
+
+function hideFingers() {
+    if(leap_motion_settings.fingers === 'yes') {
+        
+        if ($allFingers[0] === undefined)
+        {
+            // Fingers have been removed
+            return;
+        }
+        
+        for(var i=0; i<10; i++)
+        {
+            $allFingers[i].style.opacity = 0;
+        }
+    }
 }
 
 // Track Finger Movement and Update in Real Time
 function update_fingers(scale, frame)
 {
-	$('.finger').css({ 'opacity': '0' });
-
+    if (fingersGone)
+    {
+        return;
+    }
+    
+    hideFingers();
+    
 	if( !tab_has_focus)
 	{
 		return;
@@ -194,23 +315,28 @@ function update_fingers(scale, frame)
 
 	var scaled_size = Math.ceil(finger_size * scale);
 	var scaled_half = Math.ceil(scaled_size / 2);
+    
+    if ($allFingers[0] === undefined)
+    {
+        // Fingers have been removed
+        return;
+    }
 
 	// Make sure there are at least two fingers to render, since that is the minimum for an action
 	// Also prevents forehead / face from registering as a finger during typing
-	if(frame.fingers.length > 1)
+	if(frame.fingers.length > 0)
 	{
-		for(var j=0; j<frame.fingers.length; j++)
+		for(var j=0; j<frame.fingers.length && j<10; j++)
 		{
 			var top = ( height / 2 ) - frame.fingers[j].tipPosition.y;
 			var left = ( width / 2 ) + frame.fingers[j].tipPosition.x;
-
-			$('#finger' + (j+1)).css({
-				'top': 0,
-				'left': 0,
-				'position': 'fixed',
-				'transform': 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)',
-				'opacity': '0.75'
-			});
+            
+            $allFingers[j].style.top = "0";
+            $allFingers[j].style.left = "0";
+            $allFingers[j].style.transform = 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)';
+            $allFingers[j].style.webkitTransform = 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)';
+            $allFingers[j].style.opacity = "0.75";
+            
 		}
 	}
 }
@@ -218,7 +344,7 @@ function update_fingers(scale, frame)
 // Two Finger Page Scrolling
 function scroll_page(pointables)
 {
-	if( !tab_has_focus || pointables === undefined || pointables.length === 0 || last_frame === undefined || last_frame.pointables.length === 0)
+	if( !tab_has_focus || leap_motion_settings.scrolling === 'disabled' || pointables === undefined || pointables.length === 0 || last_frame === undefined || last_frame.pointables.length === 0)
 	{
 		return;
 	}
@@ -255,26 +381,56 @@ function scroll_page(pointables)
 }
 
 // Look for Hand Gestures to Navigate History
-function navigate_history(gesture)
+function handle_gesture(gesture, frame)
 {
+    
 	if( !tab_has_focus || typeof gesture === 'undefined')
 	{
 		return;
 	}
 
+	if (gesture.type === 'circle' && gesture.state === 'stop')
+	{   
+        console.log(gesture);
+        // Check direction of circle
+        if (leap_motion_settings.refresh === 'enabled' && frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4) {
+            
+            // Refresh on clockwise
+		    refresh_page();
+            
+        } else if (leap_motion_settings.close === 'enabled') {
+            
+            // Close window on an anti-clock circle
+            window.open('', '_self', '');
+            window.close();
+            
+        }
+
+        return;
+	}
+
 	if (gesture.type === 'swipe' && gesture.state === 'stop')
 	{
-		if (gesture.direction.x > 0)
-		{
-			history.forward();
-			console.log('Next Page');
-		}
-		else
-		{
-			history.back();
-			console.log('Previous Page');
-		}
+		navigate_history(gesture);
+        return;
 	}
+}
+
+function navigate_history(gesture)
+{
+    if (gesture.direction.x > 0)
+    {
+        history.forward();
+    }
+    else
+    {
+        history.back();
+    }
+}
+
+function refresh_page()
+{
+    document.location.reload(true);
 }
 
 // Look for Hand Gestures to Transform Page
@@ -287,39 +443,43 @@ function page_transform(hands)
 
 	var hand = hands[0];
 	var rotation = (Math.atan(-hand.palmNormal.x, -hand.palmNormal.y)) * (180 / Math.PI);
+    var transform = null, transformOrigin = null;
 
 	// Both Zoom and Rotation are Enables
 	if(leap_motion_settings.zoom === 'enabled' && leap_motion_settings.rotation === 'enabled')
 	{
-		$('html').css({
-			'transform': 'scale(' + hand._scaleFactor + ') rotate('+ rotation +'deg) translateZ(0)', /* W3C */
-			'-webkit-transform': 'scale(' + hand._scaleFactor + ') rotate('+ rotation +'deg) translateZ(0)',
-			'transformation-origin': 'center center'
-		});
+        transform = 'scale(' + hand._scaleFactor + ') rotate('+ rotation +'deg) translateZ(0)'; /* W3C */
+        transformOrigin = 'center center';
 	}
 	// Only Zoom is Enabled
 	else if(leap_motion_settings.zoom === 'enabled' && leap_motion_settings.rotation === 'disabled')
 	{
-		$('html').css({
-			'transform': 'scale(' + hand._scaleFactor + ') translateZ(0)', /* W3C */
-			'-webkit-transform': 'scale(' + hand._scaleFactor + ') translateZ(0)',
-			'transformation-origin': 'center center'
-		});
+        transform = 'scale(' + hand._scaleFactor + ') translateZ(0)'; /* W3C */
+        transformOrigin = 'center center';
 	}
 	// Only Rotation is Enabled
 	else if(leap_motion_settings.zoom === 'disabled' && leap_motion_settings.rotation === 'enabled')
 	{
-		$('html').css({
-			'transform': 'rotate('+ rotation +'deg) translateZ(0)', /* W3C */
-			'-webkit-transform': 'rotate('+ rotation +'deg) translateZ(0)',
-			'transformation-origin': 'center center'
-		});
+        transform = 'rotate('+ rotation +'deg) translateZ(0)'; /* W3C */
+        transformOrigin = 'center center';
 	}
+    
+    html.style.transform = transform;
+    html.style.transformOrigin = transformOrigin;
+    
+    html.style.webkitTransform = transform;
+    html.style.wekkitTransformOrigin = transformOrigin;
 }
 
 // Fetch Settings from Local Storage
 function update_settings()
 {
+    if (!("storage" in chrome)) {
+        // Not running in extension or anywhere with storage.. just initialise and cross your fingers
+        init();
+        return;
+    }
+    
 	// Fetch Leap Motion Settings for Fingers
 	chrome.storage.local.get('leap_motion_fingers', function(fetchedData) {
 		if(typeof fetchedData.leap_motion_fingers !== 'undefined')
@@ -352,6 +512,22 @@ function update_settings()
 		}
 	});
 
+	// Fetch Leap Motion Settings for Refresh
+	chrome.storage.local.get('leap_motion_refresh', function(fetchedData) {
+		if(typeof fetchedData.leap_motion_refresh !== 'undefined')
+		{
+			leap_motion_settings.refresh = fetchedData.leap_motion_refresh;
+		}
+	});
+
+	// Fetch Leap Motion Settings for Close
+	chrome.storage.local.get('leap_motion_close', function(fetchedData) {
+		if(typeof fetchedData.leap_motion_close !== 'undefined')
+		{
+			leap_motion_settings.close = fetchedData.leap_motion_close;
+		}
+	});
+
 	// Fetch Leap Motion Settings for Zoom
 	chrome.storage.local.get('leap_motion_zoom', function(fetchedData) {
 		if(typeof fetchedData.leap_motion_zoom !== 'undefined')
@@ -374,26 +550,34 @@ function update_settings()
 
 // Connect to Leap Motion via Web Socket and Manage Actions
 Leap.loop({enableGestures: true}, function (frame, done){
+    
+    if (!run)
+    {
+        // Switched off
+        return;
+    }
+    
+	var now = Date.now() / 1000;
 
-	last_poll = new Date().getTime() / 1000;
+	last_poll = now;
 
 	// Update Finger Position
-	if(leap_motion_settings.fingers === 'yes')
+	if(leap_motion_settings.fingers === 'yes' && tab_has_focus)
 	{
 		var scale = (frame.hands.length > 0 && frame.hands[0]._scaleFactor !== 'undefined') ? frame.hands[0]._scaleFactor : 1;
 		update_fingers(scale, frame);
 	}
-	else
+	else if (!fingersGone)
 	{
-		$('.finger').css({ 'opacity': '0' });
+        
+		hideFingers();
 	}
 
 	// Try to detect User Intent to reduce firing events not intended ( less jumpy page is good )
-	var now = new Date().getTime() / 1000;
-
+    
 	if(start_action === 0)
 	{
-		start_action = new Date().getTime() / 1000;
+		start_action = now;
 	}
 
 	var offset = now - start_action;
@@ -403,6 +587,7 @@ Leap.loop({enableGestures: true}, function (frame, done){
 	{
 		action = null;
 		clearTimeout(timeout);
+        
 		return;
 	}
 
@@ -412,7 +597,7 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		action = 'gesture';
 	}
 	// Look for Scrolling Gesture
-	else if (frame.pointables.length === 2)
+	else if (frame.pointables.length === 2 || frame.pointables.length === 3)
 	{
 		action = 'scroll';
 	}
@@ -428,7 +613,6 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		clearTimeout(timeout);
 	}
 
-
 	if(action === last_action && offset >= delay_between_actions)
 	{
 		intent = true;
@@ -440,12 +624,18 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		clearTimeout(timeout);
 	}
 
-	if(intent)
+	if(intent && tab_has_focus)
 	{
 		switch(action)
 		{
 			case 'gesture':
-				timeout = setTimeout(function(){ navigate_history(frame.gestures[0]); }, 250);
+                if (frame.gestures[0].type === 'circle') {
+                    // Circles tend not to fire with a higher timeout here
+                    timeout = setTimeout(function(){ handle_gesture(frame.gestures[0], frame); }, 1);
+                } else {
+                    // But swipes fire too much
+				    timeout = setTimeout(function(){ handle_gesture(frame.gestures[0], frame); }, 150);
+                }
 				break;
 
 			case 'scroll':

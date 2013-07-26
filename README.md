@@ -21,6 +21,7 @@ Instructions:
 
 * Use two fingers to Scroll Page
 * Use Open Hand to Swipe Left & Right to go Forward & Back through your Browser History
+* Draw one clockwise circle with your finger to refresh the current page
 
 Configuration Options:
 ---
@@ -29,6 +30,8 @@ Configuration Options:
 * __Finger Colors__: Colors Used to Indicate Fingers _[ **Rainbow**, Leap Green, Dark, Light ]_
 * __Page Scrolling__:  Two Fingers to Scroll Page _[ **Enabled**, Disabled ]_
 * __History Swipe__: Open Hand Swipe Left to go Back, Right to go Forward _[ **Enabled**, Disabled ]_
+* __Refresh Circle__: One clockwise circle will refresh the current page _[ **Enabled**, Disabled ]_
+* __Close Circle__: One anti-clockwise circle will close the current page _[ Enabled, **Disabled** ]_
 * __Page Zoom__: Experimental:  Open Hand and Pinch/Zoom with All Fingers _[ Enabled, **Disabled** ]_
 * __Page Rotation__: Experimental:  Open Hand and Rotate with All Fingers _[ Enabled, **Disabled** ]_
 

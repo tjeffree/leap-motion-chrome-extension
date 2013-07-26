@@ -6,6 +6,8 @@ function save_options()
 		'leap_motion_color': jQuery('#color').val(),
 		'leap_motion_scrolling': jQuery('#scrolling').val(),
 		'leap_motion_history': jQuery('#history').val(),
+		'leap_motion_refresh': jQuery('#refresh').val(),
+		'leap_motion_close': jQuery('#close').val(),
 		'leap_motion_zoom': jQuery('#zoom').val(),
 		'leap_motion_rotation': jQuery('#rotation').val()
 	});
@@ -24,6 +26,8 @@ function reset_options()
 		'leap_motion_color': 'rainbow',
 		'leap_motion_scrolling': 'enabled',
 		'leap_motion_history': 'enabled',
+		'leap_motion_refresh': 'enabled',
+		'leap_motion_close': 'disabled',
 		'leap_motion_zoom': 'disabled',
 		'leap_motion_rotation': 'disabled'
 	});
@@ -32,6 +36,8 @@ function reset_options()
 	jQuery('#color').val('rainbow');
 	jQuery('#scrolling').val('enabled');
 	jQuery('#history').val('enabled');
+	jQuery('#refresh').val('enabled');
+	jQuery('#close').val('disabled');
 	jQuery('#zoom').val('disabled');
 	jQuery('#rotation').val('disabled');
 
@@ -50,6 +56,8 @@ function restore_options()
 		'color': 'rainbow',
 		'scrolling': 'enabled',
 		'history': 'enabled',
+		'refresh': 'enabled',
+		'close': 'disabled',
 		'zoom': 'disabled',
 		'rotation': 'disabled'
 	};
@@ -92,6 +100,26 @@ function restore_options()
 		}
 
 		jQuery('#history').val(leap_motion_settings.history);
+	});
+
+	// Fetch Leap Motion Settings for Refresh
+	chrome.storage.local.get('leap_motion_refresh', function(fetchedData) {
+		if(typeof fetchedData.leap_motion_refresh !== 'undefined')
+		{
+			leap_motion_settings.refresh = fetchedData.leap_motion_refresh;
+		}
+
+		jQuery('#refresh').val(leap_motion_settings.refresh);
+	});
+
+	// Fetch Leap Motion Settings for Close
+	chrome.storage.local.get('leap_motion_close', function(fetchedData) {
+		if(typeof fetchedData.leap_motion_close !== 'undefined')
+		{
+			leap_motion_settings.close = fetchedData.leap_motion_close;
+		}
+
+		jQuery('#close').val(leap_motion_settings.close);
 	});
 
 	// Fetch Leap Motion Settings for Zoom
