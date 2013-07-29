@@ -24,6 +24,7 @@ var width = window.innerWidth;
 var height = window.innerHeight;
 var scroll_speed = 10;
 var scroll_smoothing = 4;
+var donavigate = true;
 
 // Size for Finger Rendering in Pixels
 var finger_size = 32;
@@ -43,7 +44,7 @@ var leap_motion_settings = {
 	'color': 'rainbow',
 	'scrolling': 'enabled',
     'refresh': 'enabled',
-    'close': 'enabled',
+    'close': 'disabled',
 	'history': 'enabled',
 	'zoom': 'disabled',
 	'rotation': 'disabled'
@@ -250,7 +251,6 @@ function check_focus()
 			console.error(error.message);
 		}
 	}
-    console.log(tab_has_focus);
 }
 
 // Add DOM Elements to Page to Render Fingers
@@ -389,9 +389,8 @@ function handle_gesture(gesture, frame)
 		return;
 	}
 
-	if (gesture.type === 'circle' && gesture.state === 'stop')
+	if (gesture.type === 'circle')
 	{   
-        console.log(gesture);
         // Check direction of circle
         if (leap_motion_settings.refresh === 'enabled' && frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4) {
             
@@ -409,7 +408,7 @@ function handle_gesture(gesture, frame)
         return;
 	}
 
-	if (gesture.type === 'swipe' && gesture.state === 'stop')
+	if (gesture.type === 'swipe')
 	{
 		navigate_history(gesture);
         return;
@@ -418,6 +417,12 @@ function handle_gesture(gesture, frame)
 
 function navigate_history(gesture)
 {
+    if (!donavigate)
+    {
+        // We have only just navigated - don't do it again
+        return;
+    }
+    
     if (gesture.direction.x > 0)
     {
         history.forward();
@@ -426,6 +431,10 @@ function navigate_history(gesture)
     {
         history.back();
     }
+    
+    // Disable any more navigation for a short time
+    donavigate = false;
+    setTimeout(function() { donavigate = true; }, 500);
 }
 
 function refresh_page()
@@ -557,19 +566,19 @@ Leap.loop({enableGestures: true}, function (frame, done){
         return;
     }
     
-	var now = Date.now() / 1000;
+	var offset, scale,
+        now = Date.now() / 1000;
 
 	last_poll = now;
 
 	// Update Finger Position
 	if(leap_motion_settings.fingers === 'yes' && tab_has_focus)
 	{
-		var scale = (frame.hands.length > 0 && frame.hands[0]._scaleFactor !== 'undefined') ? frame.hands[0]._scaleFactor : 1;
+		scale = (frame.hands.length > 0 && frame.hands[0]._scaleFactor !== 'undefined') ? frame.hands[0]._scaleFactor : 1;
 		update_fingers(scale, frame);
 	}
 	else if (!fingersGone)
 	{
-        
 		hideFingers();
 	}
 
@@ -580,7 +589,7 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		start_action = now;
 	}
 
-	var offset = now - start_action;
+	offset = now - start_action;
 
 	// If nothing is happening, reset interaction
 	if (frame.pointables === undefined)
@@ -610,7 +619,7 @@ Leap.loop({enableGestures: true}, function (frame, done){
 	else
 	{
 		action = null;
-		clearTimeout(timeout);
+//		clearTimeout(timeout);
 	}
 
 	if(action === last_action && offset >= delay_between_actions)
@@ -621,7 +630,7 @@ Leap.loop({enableGestures: true}, function (frame, done){
 	{
 		intent = false;
 		start_action = 0;
-		clearTimeout(timeout);
+//		clearTimeout(timeout);
 	}
 
 	if(intent && tab_has_focus)
@@ -629,12 +638,19 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		switch(action)
 		{
 			case 'gesture':
-                if (frame.gestures[0].type === 'circle') {
-                    // Circles tend not to fire with a higher timeout here
-                    timeout = setTimeout(function(){ handle_gesture(frame.gestures[0], frame); }, 1);
-                } else {
-                    // But swipes fire too much
-				    timeout = setTimeout(function(){ handle_gesture(frame.gestures[0], frame); }, 150);
+                
+                // Gestures are pointable based so often there are many per frame - just get the first gesture
+                var gesture = frame.gestures[0];
+                
+                // We have to catch the stops - otherwise we won't do anything at all
+                if (gesture.state === 'stop') {
+                    if (gesture.type === 'circle') {
+                        // Circles tend not to fire with a higher timeout here
+                        timeout = setTimeout(function(){ handle_gesture(gesture, frame); }, 1);
+                    } else {
+                        // But swipes fire too much
+                        timeout = setTimeout(function(){ handle_gesture(gesture, frame); }, 150);
+                    }
                 }
 				break;
 
