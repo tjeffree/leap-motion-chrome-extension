@@ -1,7 +1,7 @@
 var html = document.getElementsByTagName('html')[0];
 
 // Whether Current Tab Has Focus
-var tab_has_focus = true;
+var tab_has_focus = false;
 
 // Leap Motion Settings
 var run = true;
@@ -23,7 +23,7 @@ var connection_lost_after = 5;
 var width = window.innerWidth;
 var height = window.innerHeight;
 var scroll_speed = 10;
-var scroll_smoothing = 4;
+var scroll_smoothing = 10;
 var donavigate = true;
 
 // Size for Finger Rendering in Pixels
@@ -128,6 +128,7 @@ function requestInterval(fn, delay) {
 
 	function loop() {
         if (!handle.stop) {
+            
             var current = new Date().getTime(),
                 delta = current - start;
                 
@@ -358,7 +359,7 @@ function scroll_page(pointables)
 
 	var vertical_translation = 0;
 	var vertical_delta = finger.tipPosition.y - last_finger.tipPosition.y;
-
+    
 	if (horizontal_delta > 10)
 	{
 		horizontal_translation = scroll_speed;
@@ -378,6 +379,7 @@ function scroll_page(pointables)
 	}
 
 	window.scrollBy(horizontal_translation, vertical_translation);
+
 }
 
 // Look for Hand Gestures to Navigate History
@@ -392,7 +394,9 @@ function handle_gesture(gesture, frame)
 	if (gesture.type === 'circle')
 	{   
         // Check direction of circle
-        if (leap_motion_settings.refresh === 'enabled' && frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4) {
+        if (leap_motion_settings.refresh === 'enabled' && 'direction' in frame.pointablesMap[gesture.pointableIds[0]] 
+            && frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4
+        ) {
             
             // Refresh on clockwise
 		    refresh_page();
@@ -410,6 +414,12 @@ function handle_gesture(gesture, frame)
 
 	if (gesture.type === 'swipe')
 	{
+        if (gesture.handIds.length===0)
+        {
+            // No hand, no navigation
+            return;
+        }
+        
 		navigate_history(gesture);
         return;
 	}
@@ -420,6 +430,14 @@ function navigate_history(gesture)
     if (!donavigate)
     {
         // We have only just navigated - don't do it again
+        return;
+    }
+    
+    var translation = Math.abs(gesture.position.x - gesture.startPosition.x);
+    
+    if (translation < 100)
+    {
+        // small swipe, ignore it
         return;
     }
     
@@ -558,7 +576,11 @@ function update_settings()
 }
 
 // Connect to Leap Motion via Web Socket and Manage Actions
-Leap.loop({enableGestures: true}, function (frame, done){
+var ctl = new Leap.Controller({enableGestures: true});
+
+ctl.on('frame', function() {
+    
+    var frame = ctl.frame(0);
     
     if (!run)
     {
@@ -638,7 +660,6 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		switch(action)
 		{
 			case 'gesture':
-                
                 // Gestures are pointable based so often there are many per frame - just get the first gesture
                 var gesture = frame.gestures[0];
                 
@@ -670,5 +691,29 @@ Leap.loop({enableGestures: true}, function (frame, done){
 		last_action = action;
 	}
 
-	done();
 });
+
+ctl.connect();
+
+/*
+// Method used in Airspace for detecting swipe - appears not to be in current live API
+var swiper = ctl.gesture('swipe');
+
+swiper.start(function(g) {
+    swiper.currentSwipe = g;
+});
+
+swiper.update(function(g) {
+    if (swiper.currentSwipe === true) return;
+    var pos = g.translation()[0];
+    if (Math.abs(pos) > 100) {
+        swiper.isLeft = pos > 0;
+        swiper.isRight = pos < 0;
+    }
+});
+
+swiper.stop(function(g) {
+    if (swiper.currentSwipe === true) return;
+    console.log(swiper);
+});
+*/
