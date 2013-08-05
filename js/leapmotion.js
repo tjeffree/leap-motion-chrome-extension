@@ -308,11 +308,6 @@ function update_fingers(scale, frame)
     }
     
     hideFingers();
-    
-    if( !tab_has_focus)
-    {
-        return;
-    }
 
     var scaled_size = Math.ceil(finger_size * scale);
     var scaled_half = Math.ceil(scaled_size / 2);
@@ -403,7 +398,7 @@ function scroll_page_circle(gesture, frame)
 function handle_swipe(gesture, frame)
 {
     
-    if( !tab_has_focus || gesture.handIds.length===0 || !donavigate )
+    if( gesture.handIds.length===0 || !donavigate )
     {
         return;
     }
@@ -490,7 +485,7 @@ ctl.on('frame', function() {
     }
 
     // If nothing is happening, reset interaction
-    if (frame.pointables === undefined)
+    if (frame.pointables === undefined || !tab_has_focus)
     {
         action = null;
         return;

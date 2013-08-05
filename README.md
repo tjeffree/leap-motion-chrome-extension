@@ -19,9 +19,8 @@ Leap Motion Chrome Extension.  Use your Leap Motion Device to Control Your Brows
 Instructions:
 ---
 
-* Use two fingers to Scroll Page
+* Draw a clockwise circle with your finger to scroll the page down, anti-clockwise for up
 * Use Open Hand to Swipe Left & Right to go Forward & Back through your Browser History
-* Draw one clockwise circle with your finger to refresh the current page
 
 Configuration Options:
 ---
@@ -36,9 +35,9 @@ Install From Source:
 
 Download this repo and install the extension [As Instructed](http://developer.chrome.com/extensions/getstarted.html#unpacked).
 
-
+<!---
 Install from Published Chrome Extension:
 ---
 
 Install the Easy Way via [Google Chrome Webstore](https://chrome.google.com/webstore/detail/leap-motion-controller/odacmfmfjmfkojihlcjkngecflemhheo).
-
+-->
