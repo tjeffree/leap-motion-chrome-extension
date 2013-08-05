@@ -6,10 +6,8 @@ var tab_has_focus = false;
 // Leap Motion Settings
 var run = true;
 var last_frame;
-var scene;
 var action = null;
 var last_action = null;
-var timeout = null;
 
 // Track Leap Motion Connection
 var now, last_poll = null;
@@ -324,8 +322,8 @@ function update_fingers(scale, frame)
     {
         for(var j=0; j<frame.fingers.length && j<10; j++)
         {
-            var top = ( height / 2 ) - frame.fingers[j].tipPosition.y;
-            var left = ( width / 2 ) + frame.fingers[j].tipPosition.x;
+            var left = ( width / 2 ) + frame.fingers[j].tipPosition[0];
+            var top = ( height / 2 ) - frame.fingers[j].tipPosition[1];
             
             $allFingers[j].style.top = "0";
             $allFingers[j].style.left = "0";
@@ -353,7 +351,10 @@ function scroll_page_circle(gesture, frame)
         return;
     }
     
-    gesture.isClockwise  = frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4;
+//    gesture.isClockwise  = frame.pointablesMap[gesture.pointableIds[0]].direction.angleTo(gesture.normal) <= Math.PI/4;
+    
+    var vector          = new Vector(frame.finger(gesture.pointableIds[0]).direction);
+    gesture.isClockwise = vector.angleTo(new Vector(gesture.normal))<=Math.PI/4;
     
     if (lastCircleGesture==null || gesture.isClockwise!==lastCircleGesture.isClockwise || gesture.id!==lastCircleGesture.id)
     {
@@ -403,7 +404,7 @@ function handle_swipe(gesture, frame)
         return;
     }
     
-    var translation = Math.abs(gesture.position.x - gesture.startPosition.x);
+    var translation = Math.abs(gesture.position[0] - gesture.startPosition[1]);
     
     if (translation < 100)
     {
@@ -411,7 +412,7 @@ function handle_swipe(gesture, frame)
         return;
     }
     
-    if (gesture.direction.x > 0)
+    if (gesture.direction[0] > 0)
     {
         history.forward();
     }
@@ -509,13 +510,13 @@ ctl.on('frame', function() {
             case 'gesture':
                 // Gestures are pointable based so often there are many per frame - just get the first gesture
                 var gesture = frame.gestures[0];
-                
+        
                 // Catch circle gestures for scrolling
                 if (gesture.type === 'circle') {
                     scroll_page_circle(gesture, frame);
                     break;
                 }
-                
+        
                 // Catch the swipe gestures for navigation
                 if (gesture.type === 'swipe' && gesture.state === 'stop') {
                     handle_swipe(gesture, frame);
@@ -536,35 +537,39 @@ ctl.on('frame', function() {
 
 ctl.connect();
 
-/*
-var circle = ctl.gesture('circle');
+// Stripped down Vector class from older version of leapjs library
+// (https://github.com/leapmotion/leapjs/commit/acda94854310e28af0c02432f3b1906aa242c616)
+var Vector = function(data){
+	if(data == null){
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+	}
+	else if("x" in data){
+		this.x = data.x;
+		this.y = data.y;
+		this.z = data.z;
+	}
+	else if("0" in data){
+		this.x = (typeof(data[0]) == "number")?data[0]:0;
+		this.y = (typeof(data[1]) == "number")?data[1]:0;
+		this.z = (typeof(data[2]) == "number")?data[2]:0;
+	}
+};
 
-circle.start(function(g){
-    
-});
-circle.update(function(g){
-    console.log(g);
-});
-*/
-
-/*
-var swiper = ctl.gesture('swipe');
-
-swiper.start(function(g) {
-    swiper.currentSwipe = g;
-});
-
-swiper.update(function(g) {
-    if (swiper.currentSwipe === true) return;
-    var pos = g.translation()[0];
-    if (Math.abs(pos) > 100) {
-        swiper.isLeft = pos > 0;
-        swiper.isRight = pos < 0;
-    }
-});
-
-swiper.stop(function(g) {
-    if (swiper.currentSwipe === true) return;
-    console.log(swiper);
-});
-*/
+Vector.prototype = {
+	
+	angleTo : function(other){
+		var denom = this.magnitude()*other.magnitude();
+		if(denom > 0) return Math.acos(this.dot(other)/denom);
+		else return 0;
+	},
+	
+	dot : function(other){
+		return this.x*other.x + this.y*other.y + this.z*other.z;
+	},
+	
+	magnitude : function(){
+		return Math.sqrt(Math.pow(this.x,2) + Math.pow(this.y,2) + Math.pow(this.z,2));
+	}
+};

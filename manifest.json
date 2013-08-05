@@ -21,7 +21,7 @@
 		{
 			"matches": ["http://*/*", "https://*/*"],
 			"js": [
-				"js/leap.js",
+				"js/leap-0.2.0.js",
 				"js/leapmotion.js"
 			],
 			"run_at" : "document_idle",
