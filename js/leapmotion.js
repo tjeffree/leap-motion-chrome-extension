@@ -18,10 +18,13 @@ var connection_lost_after = 5;
 var width = window.innerWidth;
 var height = window.innerHeight;
 var scroll_speed = 15;
+var scroll_direction = null;
+var scroll_timeout = null;
+var scroll_finger = null;
 var donavigate = true;
 
 // Size for Finger Rendering in Pixels
-var finger_size = 32;
+var finger_size = 20;
 
 // Colors for Fingers
 var rainbow = new Array('#F80C12', '#FF3311', '#FF6644', '#FEAE2D', '#D0C310', '#69D025', '#12BDB9', '#4444DD', '#3B0CBD', '#442299');
@@ -31,6 +34,8 @@ var light = '#FFFFFF';
 
 var $allFingers = [];
 var fingersGone = false;
+var $scrollDown;
+var $scrollUp;
 
 var lastCircleGesture = null;
 
@@ -90,7 +95,25 @@ var baseCSS =
     '.chrome-leap-finger-light {' +
         'background-color: ' + light + ';' +
         '-webkit-box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25);' +
-        'box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25) }';
+        'box-shadow: inset 0px 0px 1px 1px rgba(0, 0, 0, 0.25) }' +
+    
+    '#chrome-leap-scroll-up {' +
+        'display: none; position: fixed; top:0; left:0;' +
+        'width: 0; height: 0;' +
+        'opacity: 0.5;' +
+        'margin-left: ' + finger_size/2/2 + 'px;' +
+        'border-left: ' + finger_size/2/2 + 'px solid transparent;' +
+        'border-right: ' + finger_size/2/2 + 'px solid transparent;' +
+        'border-bottom: ' + finger_size/2 + 'px solid ' + leap + '; }' +
+    
+    '#chrome-leap-scroll-down {' +
+        'display: none; position: fixed; top:0; left:0;' +
+        'width: 0; height: 0;' +
+        'opacity: 0.5;' +
+        'margin-left: ' + finger_size/2/2 + 'px;' +
+        'border-left: ' + finger_size/2/2 + 'px solid transparent;' +
+        'border-right: ' + finger_size/2/2 + 'px solid transparent;' +
+        'border-top: ' + finger_size/2 + 'px solid ' + leap + '; }';
 
 // Add the CSS to the page
 var headStyle = document.createElement('style');
@@ -273,15 +296,30 @@ function add_fingers()
         fingerD.appendChild(thisFinger);
     }
     
+    // Create the scroll arrows
+    $scrollDown = document.createElement('div'),
+    $scrollUp   = document.createElement('div');
+    
+    $scrollDown.id = 'chrome-leap-scroll-down';
+    $scrollUp.id   = 'chrome-leap-scroll-up';
+    
+    fingerD.appendChild($scrollDown);
+    fingerD.appendChild($scrollUp);
+    
     document.body.appendChild(fingerD);
     
     // Save all fingers for later
     $allFingers = document.getElementsByClassName('chrome-leap-finger');
+    $scrollDown = document.getElementById('chrome-leap-scroll-down');
+    $scrollUp   = document.getElementById('chrome-leap-scroll-up');
 
 }
 
 function hideFingers() {
     if(leap_motion_settings.fingers === 'yes') {
+        
+        $scrollDown.style.display = 'none';
+        $scrollUp.style.display   = 'none';
         
         if ($allFingers[0] === undefined)
         {
@@ -322,6 +360,12 @@ function update_fingers(scale, frame)
     {
         for(var j=0; j<frame.fingers.length && j<10; j++)
         {
+            
+            if (scroll_finger!==null && scroll_finger !== frame.fingers[j].id) {
+                // if we're scrolling, keep the screen clear and only show that finger
+                continue;
+            }
+            
             var left = ( width / 2 ) + frame.fingers[j].tipPosition[0];
             var top = ( height / 2 ) - frame.fingers[j].tipPosition[1];
             
@@ -329,7 +373,27 @@ function update_fingers(scale, frame)
             $allFingers[j].style.left = "0";
             $allFingers[j].style.transform = 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)';
             $allFingers[j].style.webkitTransform = 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)';
-            $allFingers[j].style.opacity = 0.75;
+            $allFingers[j].style.opacity = 0.5;
+            
+            // Attach a small arrow to the scrolling finger
+            if (scroll_finger === frame.fingers[j].id) {
+                if (scroll_direction==='down') {
+                    $scrollDown.style.transform = 'translate3d('+left.toFixed(2)+'px, '+(top+finger_size+5)+'px, 0)';
+                    $scrollDown.style.webkitTransform = 'translate3d('+left.toFixed(2)+'px, '+(top+finger_size+5)+'px, 0)';
+                    $scrollDown.style.display = 'block';
+                    $scrollDown.style.borderTopColor = $allFingers[j].style.backgroundColor;
+                }
+                else if (scroll_direction==='up') {
+                    $scrollUp.style.transform = 'translate3d('+left.toFixed(2)+'px, '+(top-finger_size+5)+'px, 0)';
+                    $scrollUp.style.webkitTransform = 'translate3d('+left.toFixed(2)+'px, '+(top-finger_size+5)+'px, 0)';
+                    $scrollUp.style.display = 'block';
+                    $scrollUp.style.borderBottomColor = $allFingers[j].style.backgroundColor;
+                }
+                else {
+                    $scrollDown.style.display = 'none';
+                    $scrollUp.style.display = 'none';
+                }
+            }
             
         }
         
@@ -376,10 +440,18 @@ function scroll_page_circle(gesture, frame)
         return;
     }
     
+    clearTimeout(scroll_timeout);
+    
+    // Save finger in gesture for use in update_fingers
+    scroll_finger = gesture.pointableIds[0];
+    
     // Check direction of circle
     if ( !gesture.isClockwise )
     {        
-        scroll_distance = -scroll_distance;
+        scroll_distance  = -scroll_distance;
+        scroll_direction = 'up';
+    } else {
+        scroll_direction = 'down';
     }
     
     window.scrollBy(0, scroll_distance);
@@ -393,6 +465,12 @@ function scroll_page_circle(gesture, frame)
         lastCircleGesture = gesture;
     }
     
+    scroll_timeout = setTimeout(function() {
+        scroll_direction          = null;
+        scroll_finger = null;
+        $scrollDown.style.display = 'none';
+        $scrollUp.style.display   = 'none';
+    }, 200);
 }
 
 // Look for Hand Gestures to Navigate History
