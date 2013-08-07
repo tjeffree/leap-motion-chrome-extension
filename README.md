@@ -1,10 +1,6 @@
 Leap Motion Chrome Extension
 ===
 
-[![ScreenShot](http://peterschmalfeldt.com/downloads/leapmotion_screenshot.png)](https://vimeo.com/66952815)
-
-Watch Intro Video: [https://vimeo.com/66952815](https://vimeo.com/66952815)
-
 Libraries Used:
 ---
 
@@ -34,10 +30,3 @@ Install From Source:
 ---
 
 Download this repo and install the extension [As Instructed](http://developer.chrome.com/extensions/getstarted.html#unpacked).
-
-<!---
-Install from Published Chrome Extension:
----
-
-Install the Easy Way via [Google Chrome Webstore](https://chrome.google.com/webstore/detail/leap-motion-controller/odacmfmfjmfkojihlcjkngecflemhheo).
--->
