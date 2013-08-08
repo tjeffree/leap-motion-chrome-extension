@@ -452,8 +452,9 @@ function leapMotionChromeExtension(){}
             return;
         }
         
-        if (gesture.radius < 30) speed = speed/1.5;   // small circle - slower scroll
-        if (gesture.radius > 35) speed = speed*2.5;   // big circle - faster scroll
+        speed = gesture.radius/2;
+        
+        if (speed<10) speed = 10;
         
         scroll_distance = (gesture.progress - lastCircleGesture.progress) * 10 * speed;
         
