@@ -3,7 +3,7 @@
 
 	"name": "Leap Motion Controller",
 	"description": "This extension allows the use of Leap Motion controller to scroll page and browse forward/backward.",
-	"version": "1.1.0",
+	"version": "2.0.0",
 	"homepage_url": "https://github.com/manifestinteractive/leap-motion-chrome-extension",
 	"minimum_chrome_version": "19.0.1055.1",
 	"icons": {
@@ -21,7 +21,7 @@
 		{
 			"matches": ["http://*/*", "https://*/*"],
 			"js": [
-				"js/leap-0.2.0.js",
+				"js/leap-0.2.0.min.js",
 				"js/leapmotion.min.js"
 			],
 			"run_at" : "document_idle",
