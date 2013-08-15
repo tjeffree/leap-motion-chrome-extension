@@ -1,4 +1,3 @@
-function leapMotionChromeExtension(){}
 (function() {
     
     var ENABLED  = "enabled",
@@ -127,7 +126,7 @@ function leapMotionChromeExtension(){}
                 'border-right: ' + finger_size/2/2 + 'px solid transparent;' +
                 'border-top: ' + finger_size/2 + 'px solid ' + leap + '; }';
     
-    this.init = function() {
+    function init() {
         // Add the CSS to the page
         headStyle = document.createElement('style');
         headStyle.setAttribute('type','text/css');
@@ -453,6 +452,7 @@ function leapMotionChromeExtension(){}
         }
         
         speed = gesture.radius/2;
+        speed = speed * frame.fingers.length;
         
         if (speed<10) speed = 10;
         
@@ -667,7 +667,6 @@ function leapMotionChromeExtension(){}
             return Math.sqrt(Math.pow(this.x,2) + Math.pow(this.y,2) + Math.pow(this.z,2));
         }
     };
-}).apply(leapMotionChromeExtension);
-
-// Kick it off
-leapMotionChromeExtension.init();
+    
+    init();
+})();
