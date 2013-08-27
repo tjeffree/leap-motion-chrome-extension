@@ -285,7 +285,7 @@
         catch(error) {
             // If you clicked to reload this extension, you will get this error, which a refresh fixes
             if(error.message.indexOf('Error connecting to extension') !== -1) {
-                refresh_page();
+                
             }
             // Something else went wrong... I blame Grumpy Cat
             else {
@@ -612,7 +612,7 @@
                         }
                 
                         // Catch the swipe gestures for navigation
-                        if (gesture.type === 'swipe' && gesture.state === 'stop') {
+                        else if (gesture.type === 'swipe' && gesture.state === 'stop') {
                             handle_history(gesture, frame);
                             break;
                         }
