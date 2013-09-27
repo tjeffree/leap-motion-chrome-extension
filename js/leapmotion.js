@@ -40,7 +40,7 @@
     
     // Keep track of the finger situation
         $allFingers = [],
-        fingersGone = false,
+        fingersGone = true,
     
     // Scroll arrows
         $scrollDown,
@@ -127,11 +127,6 @@
                 'border-top: ' + finger_size/2 + 'px solid ' + leap + '; }';
     
     function init() {
-        // Add the CSS to the page
-        headStyle = document.createElement('style');
-        headStyle.setAttribute('type','text/css');
-        headStyle.appendChild(document.createTextNode(baseCSS));
-        document.head.appendChild(headStyle);
         
         // Update Settings from Browser Extension
         update_settings();
@@ -189,7 +184,15 @@
     
     // Once Settings are Updates, Initialize Extension
     function startMonitor() {
+        
         if(leap_motion_settings.fingers === YES) {
+            fingersGone = false;
+            // Add the CSS to the page
+            headStyle = document.createElement('style');
+            headStyle.setAttribute('type','text/css');
+            headStyle.appendChild(document.createTextNode(baseCSS));
+            document.head.appendChild(headStyle);
+            
             add_fingers();
         }
     
@@ -374,12 +377,15 @@
         
         if ($allFingers[0] === undefined) {
             // Fingers have been removed
+            fingersGone = true;
             return;
         }
     
         // Make sure there are at least two fingers to render, since that is the minimum for an action
         // Also prevents forehead / face from registering as a finger during typing
         if(frame.fingers.length > 0) {
+            
+            fingersGone = false;
             
             var j = 0,
                 fingerLen = frame.fingers.length,
@@ -513,8 +519,10 @@
         scroll_timeout = setTimeout(function() {
             scroll_direction          = null;
             scroll_finger             = null;
-            $scrollDown.style.display = 'none';
-            $scrollUp.style.display   = 'none';
+            if (!fingersGone) {
+                $scrollDown.style.display = 'none';
+                $scrollUp.style.display   = 'none';
+            }
         }, 200);
     }
     
@@ -600,7 +608,7 @@
             last_poll = now;
             
             // Update Finger Position
-            if(leap_motion_settings.fingers === 'yes' && tab_has_focus) {
+            if(leap_motion_settings.fingers === YES && tab_has_focus) {
                 scale = (frame.hands.length > 0 && frame.hands[0]._scaleFactor !== 'undefined') ? frame.hands[0]._scaleFactor : 1;
                 update_fingers(scale, frame);
             }
