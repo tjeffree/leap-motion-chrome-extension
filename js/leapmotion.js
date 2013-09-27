@@ -252,7 +252,8 @@
                     
                     // Remove the notice after a time
                     setTimeout(function() {
-                        leapDiv.parentNode.removeChild(leapDiv);
+//                        leapDiv.parentNode.removeChild(leapDiv);
+                        leapDiv.remove();
                     }, 20000);
                     
                 });
@@ -382,7 +383,8 @@
             
             var j = 0,
                 fingerLen = frame.fingers.length,
-                left, top;
+                left, top,
+                direction, change, newSize;
             
             for(; j<fingerLen && j<10; j++) {
                 
@@ -393,7 +395,31 @@
                 
                 left = ( width / 2 ) + frame.fingers[j].tipPosition[0];
                 top = ( height / 2 ) - frame.fingers[j].tipPosition[1];
+                depth = frame.fingers[j].tipPosition[2];
+/*
+                direction = (depth<0) ? 'up' : 'down';
                 
+                depth   = Math.abs(depth);
+                newSize = finger_size;
+                
+                if (depth > 10) {
+                    
+                    change  = Math.round(depth/10);
+                    
+                    if (direction==='up') {
+                        newSize += change;
+                    } else {
+                        newSize -= change;
+                    }
+                    
+                    if (newSize<5)  newSize = 5;
+                    if (newSize>30) newSize = 30;
+                    
+                    $allFingers[j].style.width  = newSize + 'px';
+                    $allFingers[j].style.height = newSize + 'px';
+                    
+                }
+*/
                 $allFingers[j].style.top = "0";
                 $allFingers[j].style.left = "0";
                 $allFingers[j].style.transform = 'translate3d('+left.toFixed(2)+'px, '+top.toFixed(2)+'px, 0)';
