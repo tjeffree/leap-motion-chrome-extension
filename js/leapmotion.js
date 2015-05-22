@@ -409,7 +409,7 @@ var direction,
             scroll_direction = 'down';
         }
         
-        window.scrollBy(0, scroll_distance, 'smooth');
+        window.scrollBy(0, scroll_distance, { behavior: "smooth" });
         
         // If we have finished the gesture, just reset
         lastCircleGesture = (gesture.state === 'stop') ? null : gesture;
@@ -458,11 +458,13 @@ var direction,
         }
         
         // Connect to Leap Motion via Web Socket and Manage Actions
-        ctl = new Leap.Controller({enableGestures: true});
-        
-        ctl.on('frame', function() {
+        var controllerOptions = {enableGestures: true};
+
+        Leap.loop(controllerOptions, function(frame) {
+
+            retry = 0;
             
-            var frame = ctl.frame(0), timeNow, gesture;
+            var timeNow, gesture;
             
             if (!run) {
                 // Switched off
@@ -501,18 +503,22 @@ var direction,
                 switch(action) {
                         
                     case 'gesture':
-                        // Gestures are pointable based so often there are many per frame - just get the first gesture
-                        gesture = frame.gestures[0];
-                
-                        // Catch circle gestures for scrolling
-                        if (gesture.type === 'circle') {
-                            scroll_page_circle(gesture, frame);
-                            break;
-                        }
-                
-                        // Catch the swipe gestures for navigation
-                        if (gesture.type === 'swipe' && gesture.state === 'stop') {
-                            handle_history(gesture);
+
+                        for (var i = 0; i < frame.gestures.length; i++) {
+
+                            // Gestures are pointable based so often there are many per frame - just get the first gesture
+                            gesture = frame.gestures[i];
+
+                            // Catch circle gestures for scrolling
+                            if (gesture.type === 'circle') {
+                                scroll_page_circle(gesture, frame);
+                                break;
+                            }
+
+                            // Catch the swipe gestures for navigation
+                            if (gesture.type === 'swipe' && gesture.state === 'stop') {
+                                handle_history(gesture);
+                            }
                         }
                         
                         break;
@@ -520,87 +526,32 @@ var direction,
             }
         
         });
-        
-        ctl.connect();
-    }
-    
-    // Sometimes The Connection Dies, and Leap Motion Needs to be Restarted
-    function check_connection() {
-        
-        now = Date.now() / 1000;
-        
-        // Mostly I have only had to refresh the page to make the Leap work after losing connection
-        // Can probably attempt a reconnect here first
-        
-        if (last_poll !== null && now - last_poll > connection_lost_after) {
-            
-            if (retry < 10) {
-                retry += 1;
-                // Attempt a reconnect
-                console.log('Disconnected from Leap Motion - attempting reconnect (' + retry + '/10)');
-                startLeap();
-                return;
-            }
-            
-            clearRequestInterval(connection);
-            run = false;
-    
-            try {
-                
-                if (!("runtime" in chrome)) {
-                    // Not being run as an extension
-                    console.error('Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.');
-                    return;
-                }
-                
-                chrome.runtime.sendMessage({ connection: 'lost' }, function () {
-                    console.error('Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.');
-                    
-                    var leapDiv = document.createElement('div');
-                    leapDiv.className = 'leap_motion_connection';
-                    leapDiv.innerHTML = '<b>ATTENTION:<\/b> Connection to Leap Motion Lost. Restart Leap Motion and Refresh Page.';
-                    
-                    document.body.appendChild(leapDiv);
-                    
-                    document.getElementsByClassName('leap_motion_connection')[0].addEventListener('click', function () {
-                        this.style.display = 'none';
-                    }, false);
-                    
-                    // Remove the notice after a time
-                    setTimeout(function () {
-//                        leapDiv.parentNode.removeChild(leapDiv);
-                        leapDiv.remove();
-                    }, 20000);
-                    
-                });
-            } catch (error) {
-                console.error(error.message);
-            }
-        }
+
     }
     
     // Check if Current Tab has Focus, and only run this extension on the active tab
     function check_focus() {
         
-        if (!("runtime" in chrome)) {
+        if (window.chrome && chrome.runtime && chrome.runtime.id) {
+            try {
+                chrome.runtime.sendMessage({ tab_status: 'current' }, function (response) {
+                    if (response.active && window.location.href === response.url && document.hasFocus()) {
+                        tab_has_focus = true;
+                    } else {
+                        tab_has_focus = false;
+                    }
+                });
+            } catch (error) {
+                if (error.message.indexOf('Error connecting to extension') === -1) {
+                    console.error(error.message);
+                }
+            }
+        } else {
             // Not being run as an extension
             tab_has_focus = document.hasFocus();
             return;
         }
-        
-        try {
-            chrome.runtime.sendMessage({ tab_status: 'current' }, function (response) {
-                if (response.active && window.location.href === response.url && document.hasFocus()) {
-                    tab_has_focus = true;
-                } else {
-                    tab_has_focus = false;
-                }
-            });
-        } catch (error) {
-            if (error.message.indexOf('Error connecting to extension') === -1) {
-                console.error(error.message);
-            }
-        }
+
     }
     
     // Single interval method to check the connection and focus status
@@ -610,9 +561,9 @@ var direction,
             clearRequestInterval(connection);
             return;
         }
-        
-        check_connection();
+
         check_focus();
+
     }
     
     // Once Settings are Updates, Initialize Extension
